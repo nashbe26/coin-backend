@@ -30,7 +30,7 @@ const multiUploadImages = multer({
 			callback(null, file.originalname);
 		},
 	}),
-}).array('files', 5);
+}).array('files', 20);
 
 
   module.exports={

@@ -13,7 +13,7 @@ const jwtOptions = {
 
 const jwt = async (payload, done) => {
   try {
-    const user = await User.findById(payload.sub).populate('fav_prod');
+    const user = await User.findById(payload.sub).populate('fav_prod my_prods achete vendu').populate('my_prods.owner').populate('fav_prod.owner').populate('vendu.owner').populate('achete.owner');
     console.log(payload);
     if (user) {
       return done(null, user);

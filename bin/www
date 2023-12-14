@@ -7,7 +7,15 @@
 var app = require('../app');
 var debug = require('debug')('djo-market-backend:server');
 var http = require('http');
-
+const {
+  sendMessage,
+  joinRoom,
+  notification_user,
+  joinChat,
+  leaveChat,
+  joinNotification,
+  sendNotification,
+} = require("../utils/socket.js");
 /**
  * Get port from environment and store in Express.
  */
@@ -26,11 +34,30 @@ var server = http.createServer(app);
  */
 
 server.listen(port,()=>{
-  console.log("server is working properly !!");
+  console.log("server is working properly !!" , port);
 });
 server.on('error', onError);
 server.on('listening', onListening);
+/***
+ *  Socket.io configuration  */
 
+const io = require("socket.io")(server, {
+  cors: {
+    origin: "*",
+  },
+});
+
+io.on("connection", (socket) => {
+  console.log("user connected",socket.id);
+
+  sendMessage(socket, io);
+  joinRoom(socket, io);
+  notification_user(socket, io);
+  joinChat(socket, io);
+  leaveChat(socket, io);
+  joinNotification(socket, io);
+  sendNotification(socket, io);
+});
 /**
  * Normalize a port into a number, string, or false.
  */

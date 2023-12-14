@@ -1,68 +1,77 @@
 const Product = require('../models/produit');
 const Category = require('../models/category');
 const Subcategory = require('../models/sub_category');
+const User = require('../models/user');
 
-const mongoose = require('mongoose');
-const ObjectId = mongoose.Types.ObjectId;
 
+const dotenv = require('dotenv');
+
+dotenv.config();
 
 const createProduct = async (req, res) => {
-
-
   try {
+
     const product = new Product(req.body);
- 
-    const productsByCategorySubName = await Subcategory.findOne({
-      _id:  req.body.sub_categories
-    });
+    product.owner = req.route.meta.user._id
+    await product.save();  
 
-    const productsByCategoryName = await Category.findOne({
-      _id: productsByCategorySubName.category
-    });
-    if(!productsByCategoryName)
-      return res.status(404).json({ error: 'no category for this profile' });
+    const user =  await User.findById( req.route.meta.user._id);
 
-    product.categories = productsByCategoryName._id
-    await product.save();
+    user.my_prods.push(product._id)
+    await user.save();  
 
-    productsByCategoryName.id_prod.push(product._id)
-    productsByCategorySubName.id_prod.push(product._id)
-    await productsByCategorySubName.save()
-    await productsByCategoryName.save()
+    if(!product)
+      return res.status(401).json({ error: 'Failed to create product' });
+
     return res.status(201).json(product);
+
   } catch (err) {
     console.log(err);
     return res.status(500).json({ error: 'Failed to create product' });
   }
 };
+
 const gegtImagesNames = async (req, res) => {
   
   try{
-
-    return res.status(201).json(req.file);
+    let files = req.files;
+    let tab = [];
+    files.map(x=>{
+      tab.push( process.env.HOST + x.originalname)
+    })
+    return res.status(201).json(tab);
 
   }catch(err){
     console.log(err);
     return res.status(500).json({ error: err});
   }
 
-
-
 };
 
 const getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find().populate('categories sub_categories');;
+    const products = await Product.find();
     res.json(products);
   } catch (err) {
     res.status(500).json({ error: 'Failed to retrieve products' });
   }
 };
+const getRandomProducts = async (req, res) => {
+  try {
+    const totalProducts = await Product.countDocuments();
+    const skipCount = totalProducts > 8 ? Math.floor(Math.random() * (totalProducts - 10)) : 0;
+    const randomProducts = await Product.find().populate('owner').skip(skipCount).limit(10);
+    res.status(200).json(randomProducts);
 
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve products' });
+  }
+};
 const getProductById = async (req, res) => {
   const { id } = req.params;
   try {
-    const product = await Product.findById(id).populate('categories sub_categories');
+    const product = await Product.findById(id).populate('owner');
+    console.log(product);
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }
@@ -73,6 +82,7 @@ const getProductById = async (req, res) => {
 };
 
 const updateProductById = async (req, res) => {
+
   const { id } = req.params;
 
   try {
@@ -104,8 +114,28 @@ const deleteProductById = async (req, res) => {
   }
 };
 
+const updateViews = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    product.nb_views +=1;
+
+    product.save()
+
+    res.json({ message: product.nb_views });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete product' });
+  }
+};
+
+
 const searchProducts = async (req, res) => {
-  const { title, category, subcategory } = req.query;
+  const { title, category } = req.query;
+  console.log({ title, category });
   try {
     
     const query = {};
@@ -117,23 +147,15 @@ const searchProducts = async (req, res) => {
       query.category= category  ? { $regex: category, $options: 'i' } : null;
       
     }
-    if (subcategory) {
-      query.subcategory = subcategory  ? { $regex: subcategory, $options: 'i' } : null ;
-    }
+
     
-    const productsByCategoryName = await Category.findOne({
-      name: query.category
-    });
-    const productsByCategorySubName = await Subcategory.findOne({
-      name: query.subcategory
-    });
     const products = await Product.find({
       $or: [
         { title: query.title },
-        { categories: productsByCategoryName?._id },
-        { sub_categories: productsByCategorySubName?._id }
+        { category: query.category },
+
       ]
-    }).limit(6).populate('categories sub_categories');
+    }).limit(8);
 
     res.status(200).json(products);
 
@@ -159,23 +181,37 @@ const searchCateProducts = async (req, res) => {
     }
   }
 };
-const searchSimilarProduct = async (req, res) => {
-  if (req.query.subcategory) {
-    const limit = 4;
-    const totalDocuments = await Product.countDocuments({ sub_categories: req.query.subcategory });
-    const randomSkip = Math.floor(Math.random() * (totalDocuments / limit));
-    try { 
-      const productsByCategorySubName = await Product.find({ sub_categories: req.query.subcategory })
-        .skip(randomSkip)
-        .limit(limit);
 
-      res.status(200).json(productsByCategorySubName);
-    } catch (error) {
-      console.log(error);
-      res.status(500).json({ message: error });
+const searchSimilarProduct = async (req, res) => {
+  try {
+    let query = {};
+
+    if (req.query.category) {
+      query.category = req.query.category;
     }
+
+    if (req.query.title) {
+      // Assuming you want to perform a case-insensitive partial match on the title
+      query.$or = [
+        { title: { $regex: new RegExp(req.query.title, 'i') } },
+      ];
+    }
+
+    const limit = 8;
+    const totalDocuments = await Product.countDocuments(query);
+    const randomSkip = Math.floor(Math.random() * (totalDocuments / limit));
+
+    const products = await Product.find(query).populate('owner')
+      .skip(randomSkip)
+      .limit(limit);
+
+    res.status(200).json(products);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: error.message });
   }
 };
+
 
 
 const fs = require('fs');
@@ -223,5 +259,7 @@ module.exports = {
   searchCateProducts,
   searchSimilarProduct,
   gegtImagesNames,
-  deleteImages
+  deleteImages,
+  updateViews,
+  getRandomProducts
 };

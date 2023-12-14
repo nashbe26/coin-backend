@@ -9,46 +9,52 @@ const productSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  statusProd:{
+  statusProd: {
     type: String,
-      enum: ['en arrivage','en stock','épuisé'],
-      default: 'en stock',
-    
-  }
-,
-  categories:{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Category'
+    enum: ['en arrivage', 'en stock', 'épuisé','archivé','Vendu'],
+    default: 'en stock',
+
   },
-  sub_categories: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Subcategory'
-  },
-  quantity: {
+  nb_views:{
     type: Number,
-    min: 0
+    default:0
   },
-  is_balance: {
-    type: Boolean,
-    default:false
-  },
-  max_quantity:{
-    type: Number
-  },
-  max_weight:{
-    type: Number
-  },
-  weight: {
+  category: {
     type: String,
   },
-  photos: {
+  marque: {
+    type: String,
+  },
+  etat: {
+    type: String,
+  },
+  taille: {
+    type: String,
+  },
+  matieres: {
+    type: String,
+  },
+  couleur: {
+    type: String,
+  },
+  status: {
+    type: String,
+  },
+  livraion:{
+    type: String,
+  },
+  owner:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  image: {
     type: [String],
   },
-  description:{
-    type:String
+  desc: {
+    type: String
   }
 
-});
+},{ timestamps: true});
 
 const Product = mongoose.model('Product', productSchema);
 

@@ -62,6 +62,15 @@ const updateCategory = async (req, res) => {
     if (!updatedCategory) {
       return res.status(404).json({ message: 'Category not found' });
     }
+
+    console.log(subcategories);
+    subcategories.map(async x=>{
+      const scategory = await Subcategory.findOne({_id:x});
+      console.log("dsdsdsd",scategory);
+      scategory.category = updatedCategory._id
+      await scategory.save()
+    });
+
     res.json(updatedCategory);
   } catch (error) {
     res.status(500).json({ message: 'Error updating category' });
@@ -77,6 +86,7 @@ const updateSubCategory = async (req, res) => {
         { $push: { subcategories: { $each: subcategories } } },
         { new: true }
       );
+
       if (!updatedCategory) {
         return res.status(404).json({ message: 'Category not found' });
       }
